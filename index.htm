@@ -21,12 +21,12 @@
 	<script src="/socket.io/socket.io.js"></script>
 	<script src="https://code.jquery.com/jquery-1.11.1.js"></script>
 <script>
-	
+	var socket = io();
 	var urlParams = new URLSearchParams(window.location.search);
 	var name = urlParams.get("name");
-  var socket = io();
+	socket.emit("connected", {"name":name})
     $('form').submit(function(){
-      socket.emit('chat message', name + ": " + $('#m').val());
+      socket.emit('chat message', {"msg" : $('#m').val(), "name" : name});
     $('#m').val('');
       return false;
     });
