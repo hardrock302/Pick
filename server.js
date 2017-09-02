@@ -10,6 +10,13 @@ var people = {};
 var rooms = {};  
 var usernames = [];
 var connection = alfrescoJsApi = new alfresco(constants.alfrescoIP, {provider:'ALL'});
+function login(username, password){
+	connection.login(username, password).then(function (data) {
+		console.log('API called successfully Login in  BPM and ECM performed ');
+	}, function (error) {
+		console.error(error);
+	});
+}
 function login(){
 	connection.login('admin', 'admin').then(function (data) {
 		console.log('API called successfully Login in  BPM and ECM performed ');
@@ -24,27 +31,17 @@ function logout(){
 		console.log(error);
 	});
 }
-app.get('/maps/:name/', function(req, res){
-	login();
-	connection.nodes.getNodeInfo(req.params['name']).then(function (data) {
-		//console.log(data);
-		 res.send(data);
-		}, function (error) {
-			console.log('This node does not exist');
-	});
-	//logout();
-});
 app.get('/', function(req, res){
   res.sendFile(__dirname + '/login.htm');
 });
 app.get('/chat', function(req, res){
   res.sendFile(__dirname + '/index.htm');
 });
-app.get('/test/:game', function(req, res){
+app.get('/games/', function(req, res){
 	login();
 	connection.search.searchApi.search({
         "query": {
-            "query": "select * from cmis:folder",
+            "query": "select cmis:objectId, pb:Name from pb:Game",
             "language": "cmis"
             }
         }).then(function (data) {
@@ -52,6 +49,20 @@ app.get('/test/:game', function(req, res){
         }, function (error) {
             res.send(error);
         });
+});
+app.get('/maps/:game', function(req, res){
+	login();
+		connection.search.searchApi.search({
+        "query": {
+            "query": "select * from pb:Map where pb:parentGame ='" + req.params['game'] +"'",
+            "language": "cmis"
+            }
+        }).then(function (data) {
+            res.send(data);
+        }, function (error) {
+            res.send(error);
+        });
+	
 });
 io.on('connection', function(socket){
 	socket.on("connected", function(data){
