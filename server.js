@@ -45,7 +45,7 @@ app.get('/games/', function(req, res){
             "language": "cmis"
             }
         }).then(function (data) {
-            res.send(data);
+            res.send(data.list.entries);
         }, function (error) {
             res.send(error);
         });
