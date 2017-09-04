@@ -9,6 +9,8 @@ var uuid = require('node-uuid');
 var people = {};  
 var rooms = {};  
 var usernames = [];
+var items = []
+
 var connection = alfrescoJsApi = new alfresco(constants.alfrescoIP, {provider:'ALL'});
 function login(username, password){
 	connection.login(username, password).then(function (data) {
@@ -36,6 +38,28 @@ app.get('/', function(req, res){
 });
 app.get('/chat', function(req, res){
   res.sendFile(__dirname + '/index.htm');
+});
+app.get('/games/', function(req, res){
+	login();
+	connection.search.searchApi.search({
+        "query": {
+            "query": "select cmis:objectId, pb:Name from pb:Game",
+            "language": "cmis"
+            }
+        }).then(function (data) {
+			var gamesList = [];
+			for (var i=0; i<Object.keys(data.list.entries).length; i++){
+				var game = data.list.entries[i].entry;
+				console.log(game);
+				var obj = new Object();
+				obj.name = game.name;
+				obj.id = game.id;
+				gamesList.push(obj);
+			}
+            res.send(gamesList);
+        }, function (error) {
+            res.send(error);
+        });
 });
 app.get('/games/', function(req, res){
 	login();
