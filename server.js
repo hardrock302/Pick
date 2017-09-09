@@ -2,16 +2,18 @@ const app = require('express')();
 const http = require('http').Server(app);
 const alfresco = require('alfresco-js-api');
 const constants = require('./constants.js');
-//const alfrescoIP = 'http://127.0.0.1:8080';
 var io = require('socket.io')(http);
 var Room = require('./room.js');  
-var uuid = require('node-uuid');  
+var uuid = require('node-uuid'); 
+var bodyParser = require('body-parser');
+app.use(bodyParser.json()); // support json encoded bodies
+app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies 
 var people = {};  
 var rooms = {};  
 var usernames = [];
 var items = []
 
-var connection = alfrescoJsApi = new alfresco(constants.alfrescoIP, {provider:'ALL'});
+var connection = alfrescoJsApi = new alfresco(constants.ALFRESCO_IP, {provider:'ALL'});
 function login(username, password){
 	connection.login(username, password).then(function (data) {
 		console.log('API called successfully Login in  BPM and ECM performed ');
@@ -19,8 +21,8 @@ function login(username, password){
 		console.error(error);
 	});
 }
-function login(){
-	connection.login('admin', 'admin').then(function (data) {
+function login(user, pass){
+	connection.login(user, pass).then(function (data) {
 		console.log('API called successfully Login in  BPM and ECM performed ');
 	}, function (error) {
 		console.error(error);
@@ -28,9 +30,7 @@ function login(){
 }
 function logout(){
 	 connection.logout().then(function(){
-		console.log("Logout complete");
 	},function(error){
-		console.log(error);
 	});
 }
 app.get('/', function(req, res){
@@ -48,9 +48,9 @@ app.get('/games/', function(req, res){
             }
         }).then(function (data) {
 			var gamesList = [];
-			for (var i=0; i<Object.keys(data.list.entries).length; i++){
+			var games = Object.keys(data.list.entries);
+			for (var i=0; i<games.length; i++){
 				var game = data.list.entries[i].entry;
-				console.log(game);
 				var obj = new Object();
 				obj.name = game.name;
 				obj.id = game.id;
@@ -61,25 +61,31 @@ app.get('/games/', function(req, res){
             res.send(error);
         });
 });
-app.get('/games/', function(req, res){
+app.post('/login', function(req, res) {
+	login(req.body.name, req.body.password);
+});
+app.get('/details/:game', function(req, res){
 	login();
-	connection.search.searchApi.search({
+		connection.search.searchApi.search({
         "query": {
-            "query": "select cmis:objectId, pb:Name from pb:Game",
+            "query": "select * from pb:Map where pb:parentGame = 'workspace://SpacesStore/" + req.params['game'] +"'",
             "language": "cmis"
+			
             }
         }).then(function (data) {
-            res.send(data.list.entries);
+            res.send(data);
         }, function (error) {
             res.send(error);
         });
+	
 });
 app.get('/maps/:game', function(req, res){
 	login();
 		connection.search.searchApi.search({
         "query": {
-            "query": "select * from pb:Map where pb:parentGame ='" + req.params['game'] +"'",
+            "query": "select * from cm:content where cm:description = Map Image",
             "language": "cmis"
+			
             }
         }).then(function (data) {
             res.send(data);

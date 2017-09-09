@@ -4,23 +4,29 @@
     <title>Socket.IO chat</title>
   </head>
   <body>
-    <ul id="messages"></ul>
-    <form action="">
-      <input id="name" autocomplete="off" /><button>Send</button>
-    </form>
-	<script src="/socket.io/socket.io.js"></script>
+      <input id="name" type="text"/>
+	  <input id="password" type="text" />
+	  <button id="login">Send</button>
+
 	<script src="https://code.jquery.com/jquery-1.11.1.js"></script>
-<script>
-  var socket = io();
-    $('form').submit(function(){
-      socket.emit('user logged in', $('#name').val() + "logged in.");
-    $('#m').val('');
-      return false;
-    });
-  socket.on('chat message', function(msg){
-      $('#messages').append($('<li>').text(msg));
-  });
-</script>
+	<script>
+	$("#login").click(function(){
+		var data = {
+		name: $("#name").val(),
+		password: $("#password").val()
+	}
+		$.ajax({
+			url: "/login",
+			method:"POST",
+			datatype:"json",
+			data: data,
+			success(res){
+			
+			}
+		});
+	});
+		
+	</script>
   </body>
 </html>
     
