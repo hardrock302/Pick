@@ -14,13 +14,6 @@ var usernames = [];
 var items = []
 
 var connection = alfrescoJsApi = new alfresco(constants.ALFRESCO_IP, {provider:'ALL'});
-function login(username, password){
-	connection.login(username, password).then(function (data) {
-		console.log('API called successfully Login in  BPM and ECM performed ');
-	}, function (error) {
-		console.error(error);
-	});
-}
 function login(user, pass){
 	connection.login(user, pass).then(function (data) {
 		console.log('API called successfully Login in  BPM and ECM performed ');
@@ -37,7 +30,52 @@ app.get('/', function(req, res){
   res.sendFile(__dirname + '/login.htm');
 });
 app.get('/chat', function(req, res){
+  var user = uuidv4();
+  var roomId = uuidv4();
+  var room = {
+	"voteKeyA": uuidv4(),
+	"voteKeyB": uuidv4()
+  }
+  rooms.push(room);
   res.sendFile(__dirname + '/index.htm');
+});
+app.get('/chat/:room', function(req, res){
+  var user = uuidv4();
+  var join = {"user": user, 
+			"room": room };
+  rooms.push();
+  res.sendFile(__dirname + '/index.htm');
+});
+app.get('/chat/:room/:key', function(req, res){
+  var user = uuidv4();
+  var join = {"user": user, 
+			"room": room };
+  rooms.push();
+  res.sendFile(__dirname + '/index.htm');
+});
+app.post('/vote', function(req, res){
+	var key = req.params["key"];
+	var room = req.params["room"];
+	if (rooms[room].voteKeyA == key){ 
+		
+	}
+	else if (rooms[room].voteKeyB == key){
+	
+	}
+	res.sendFile(__dirname + '/index.htm');
+});
+app.post('/createaccount', function(req, res){
+	var nodeId = constants.usrHome;
+	var node = {
+		"name": req.params['name'],
+		"nodeType":"cm:person",
+		"password": req.params['password'],
+	};
+	connection.core.childAssociationsApi.addNode(nodeId, node, opts).then(function() {
+		console.log('API called successfully.');
+	}, function(error) {
+		console.error(error);
+	});
 });
 app.get('/games/', function(req, res){
 	login();
@@ -65,7 +103,7 @@ app.post('/login', function(req, res) {
 	login(req.body.name, req.body.password);
 });
 app.get('/details/:game', function(req, res){
-	login();
+	login("admin", "admin");
 		connection.search.searchApi.search({
         "query": {
             "query": "select * from pb:Map where pb:parentGame = 'workspace://SpacesStore/" + req.params['game'] +"'",
@@ -80,10 +118,10 @@ app.get('/details/:game', function(req, res){
 	
 });
 app.get('/maps/:game', function(req, res){
-	login();
+	login("admin", "admin");
 		connection.search.searchApi.search({
         "query": {
-            "query": "select * from cm:content where cm:description = Map Image",
+            "query": "select * from cmis:document where IN_FOLDER('workspace://SpacesStore/" + req.params['game'] +"') and cmis:name like '%.png'",
             "language": "cmis"
 			
             }
