@@ -1,0 +1,9 @@
+{
+  "name": "pick-ban",
+  "version": "0.0.0",
+  "description": "Pick-Ban",
+  "main": "server.js",
+  "author": {
+    "name": "sonic"
+  }
+}
