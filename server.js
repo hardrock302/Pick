@@ -87,21 +87,21 @@ app.post(constants.VOTE_URL, function(req, res){
 		room[constants.VOTE_CAST_B] = false;
 	}
 	if (mode == constants.MAP){
-		if (rooms[room].hashA == userHash && room[constants.VOTE_CAST_A] == false){
+		if (rooms[room].hashKeyA == userHash && room[constants.VOTE_CAST_A] == false){
 			vote(mode, room, choice1, choice2)
 			room[constants.VOTE_CAST_A] = true;
 		}
-		else if (rooms[room].hashB == userHash && room[constants.VOTE_CAST_B] == false){
+		else if (rooms[room].hashkeyB == userHash && room[constants.VOTE_CAST_B] == false){
 			vote(mode, room, choice1, choice2)
 			room[constants.VOTE_CAST_B] = true;
 		}
 	}
 	else if (mode == constants.CHAR){
-		if (rooms[room].hashA == userHash && room[constants.VOTE_CAST_A] == false){ 
+		if (rooms[room].hashKeyA == userHash && room[constants.VOTE_CAST_A] == false){ 
 			vote(mode, room, choice1, choice2)
 			room[constants.VOTE_CAST_A] = true;
 		}
-		else if (rooms[room].hashB == userHash && room[constants.VOTE_CAST_B] == false){
+		else if (rooms[room].hashKeyB == userHash && room[constants.VOTE_CAST_B] == false){
 			vote(mode, room, choice1, choice2)
 			room[constants.VOTE_CAST_B] = true;
 		}
