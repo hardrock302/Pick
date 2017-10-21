@@ -119,7 +119,7 @@ app.post('/createaccount', function(req, res){
 	});
 });
 app.get('/games/', function(req, res){
-	login(constants.DEFAULT_USER, constants.DEFAULT_PASS);
+	login("admin", "admin");
 	connection.search.searchApi.search({
         "query": {
             "query": "select cmis:objectId, pb:Name from pb:Game",
@@ -144,7 +144,7 @@ app.post('/login', function(req, res) {
 	login(req.body.name, req.body.password);
 });
 app.get('/details/:game', function(req, res){
-	login(constants.DEFAULT_USER, constants.DEFAULT_PASS);
+	login("admin", "admin");
 		connection.search.searchApi.search({
         "query": {
             "query": "select * from pb:Map where pb:parentGame = 'workspace://SpacesStore/" + req.params['game'] +"'",
@@ -159,7 +159,7 @@ app.get('/details/:game', function(req, res){
 	
 });
 app.get('/maps/:game', function(req, res){
-	login(constants.DEFAULT_USER, constants.DEFAULT_PASS);
+	login("admin", "admin");
 		connection.search.searchApi.search({
         "query": {
             "query": "select * from cmis:document where IN_FOLDER('workspace://SpacesStore/" + req.params['game'] +"') and cmis:name like '%.png'",
