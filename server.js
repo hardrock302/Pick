@@ -29,7 +29,7 @@ function logout(){
 function vote(mode, room, choice1, choice2){
 		var choice1 = req.params[constants.CHOICE1];
 		var choice2 = req.params[constants.CHOICE2];
-		var mode = req.params[constants.MODE];
+		var mode = req.params["mode"];
 		
 		delete room[mode[req.params[constants.CHOICE1]]];
 		if (req.params[constants.CHOICE2] != null){
@@ -39,13 +39,13 @@ function vote(mode, room, choice1, choice2){
 app.get('/', function(req, res){
   res.sendFile(__dirname +constants.LOGIN_URL);
 });
-app.get('/chat', function(req, res){
-  var user = uuidv4();
-  var roomId = uuidv4();
+app.get('/chat/', function(req, res){
+  var user = uuid();
+  var roomId = uuid();
   var room = {
-	"keyA": uuidv4(),
-	"keyB": uuidv4(),
-	"mode": req.params[constants.MODE],
+	"keyA": uuid(),
+	"keyB": uuid(),
+	"mode": req.params["mode"],
 	"hashKeyA":"",
 	"hashKeyB":"",
 	"serverKey":"",
@@ -54,56 +54,56 @@ app.get('/chat', function(req, res){
 	"voteCastA": false,
 	"voteCastB":false
   }
-  room[constants.SERVER_KEY] = uuidv4();
-  room[constants.HASH_A]  = CryptoJS.AES.encrypt(JSON.stringify(room[constants.KEY_A]), room[constants.SERVER_KEY]);
-  room[constants.HASH_B]  = CryptoJS.AES.encrypt(JSON.stringify(room[constants.KEY_B]), room[constants.SERVER_KEY]);
-  rooms.push(room);
-  res.sendFile(__dirname + constants.HOME);
+  room["serverKey"] = uuid();
+  room["hashKeyA"]  = CryptoJS.AES.encrypt(JSON.stringify(room["keyA"]), room["serverKey"]);
+  room["hashKeyB"]  = CryptoJS.AES.encrypt(JSON.stringify(room["keyB"]), room["serverKey"]);
+  rooms[roomId] = room;
+  res.sendFile(__dirname + '/index.htm');
 });
 app.get('/chat/:room/:user', function(req, res){
-  var user = uuidv4();
+  var user = uuid();
   var join = {"user": user, 
 			"room": room };
-  res.sendFile(__dirname + constants.HOME);
+  res.sendFile(__dirname + '/index.htm');
 });
 app.post('/vote', function(req, res){
-	var key = req.params[constants.KEY];
-	var room = req.params[constants.ROOM];
-	var mode = req.params[constants.MODE]
-	var voteCastA = room[constants.VOTE_CAST_A];
-	var voteCastB = room[constants.VOTE_CAST_B];
+	var key = req.params["key"];
+	var room = req.params["room"];
+	var mode = req.params["mode"]
+	var voteCastA = room["voteCastA"];
+	var voteCastB = room["voteCastB"];
 	var hashA = room[hashKeyA];
 	var hashB = room[hashKeyB];
 	if(rooms[room] == null && key == null && (mode != constants.MAPS && mode != constants.CHAR) && rooms[voteCastA] == false || rooms[voteCastB] == false){
-		res.sendFile(__dirname + constants.HOME);
+		res.sendFile(__dirname + '/index.htm');
 	}
 	//compute key and compare for security check
-	var userHash = CryptoJS.AES.encrypt(JSON.stringify(room[constants.KEY]), room[constants.SERVER_KEY]);
-	if(room[constants.VOTE_CAST_A] && room[constants.VOTE_CAST_B]){
-		room[constants.VOTE_CAST_A] = false;
-		room[constants.VOTE_CAST_B] = false;
+	var userHash = CryptoJS.AES.encrypt(JSON.stringify(room["key"]), room["serverKey"]);
+	if(room["voteCastA"] && room["voteCastB"]){
+		room["voteCastA"] = false;
+		room["voteCastB"] = false;
 	}
 	if (mode == constants.MAP){
-		if (rooms[hashA] == userHash && room[constants.VOTE_CAST_A] == false){
+		if (rooms[hashA] == userHash && room["voteCastA"] == false){
 			vote(mode, room, choice1, choice2)
-			room[constants.VOTE_CAST_A] = true;
+			room["voteCastA"] = true;
 		}
-		else if (rooms[hashB] == userHash && room[constants.VOTE_CAST_B] == false){
+		else if (rooms[hashB] == userHash && room["voteCastB"] == false){
 			vote(mode, room, choice1, choice2)
-			room[constants.VOTE_CAST_B] = true;
+			room["voteCastB"] = true;
 		}
 	}
 	else if (mode == constants.CHAR){
-		if (rooms[hashA] == userHash && room[constants.VOTE_CAST_A] == false){ 
+		if (rooms[hashA] == userHash && room["voteCastA"] == false){ 
 			vote(mode, room, choice1, choice2)
-			room[constants.VOTE_CAST_A] = true;
+			room["voteCastA"] = true;
 		}
-		else if (rooms[hashB] == userHash && room[constants.VOTE_CAST_B] == false){
+		else if (rooms[hashB] == userHash && room["voteCastB"] == false){
 			vote(mode, room, choice1, choice2)
-			room[constants.VOTE_CAST_B] = true;
+			room["voteCastB"] = true;
 		}
 	}
-	res.sendFile(__dirname + constants.HOME);
+	res.sendFile(__dirname + '/index.htm');
 });
 app.post('/createaccount', function(req, res){
 	var nodeId = constants.ALFRESCO_USER_HOME_REF;
