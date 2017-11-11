@@ -16,7 +16,7 @@ var CryptoJS = require('crypto-js');
 var connection = alfrescoJsApi = new alfresco(constants.ALFRESCO_IP, {provider:'ALL'});
 function login(user, pass){
 	connection.login(user, pass).then(function (data) {
-		console.log('API called successfully LOGIN_URL in  BPM and ECM performed ');
+	console.log('API called successfully LOGIN_URL in  BPM and ECM performed ');
 	}, function (error) {
 		console.error(error);
 	});
@@ -26,15 +26,86 @@ function logout(){
 	},function(error){
 	});
 }
+//TODO: validate number of items against allowed votes per round; for example, is this a two pick round and have two valid choices been provided ?
+function isVoteValid(room, choice1, choice2){
+	
+}
+
 function vote(mode, room, choice1, choice2){
-		var choice1 = req.params[constants.CHOICE1];
-		var choice2 = req.params[constants.CHOICE2];
-		var mode = req.params["mode"];
+		var isValid = isVoteValid(room, choice1, choice2);
 		
-		delete room[mode[req.params[constants.CHOICE1]]];
-		if (req.params[constants.CHOICE2] != null){
-			delete room[mode[req.params[constants.CHOICE2]]];
+		if(isValid){
+			delete room[mode[req.params[constants.CHOICE1]]];
+			if (req.params[constants.CHOICE2] != null){
+				delete room[mode[req.params[constants.CHOICE2]]];
+			}
+			return constants.CAST;
 		}
+		else{
+			return constants.FAIL;
+		}
+}
+function whichTeamisAllowedToVote(key, room){
+	if (key == room["keyA"] && room["votingTeam"] == constants.TEAM_A)
+		return constants.TEAM_A;
+	else if (key == room["keyB"] && room["votingTeam"] == constants.TEAM_B)
+		return constants.TEAM_B;
+	else
+		return constants.FAIL;
+}
+
+function startNewVotingRoundIfNeeded(room){
+	//If both teams have voted start new round
+	if(room["teamAHasVoted"] && room["teamBHasVoted"]){
+		room["teamAHasVoted"] = false;
+		room["teamBHasVoted"] = false;
+	}
+}
+
+function computeKey(serverKey, userKey, phrase){
+	//The key will be created by taking the user key and the server key for the room and encrypting with a string unique to the room
+	return CryptoJS.AES.encrypt(userKey + serverKey), phrase);
+}
+function verifyKey(serverKey, userKey, serverEncryptedKey, phrase){
+	//Does the provided user key match the unaltered server copy?
+	var userEncryptedKey = computeKey(serverKey, userKey, phrase);
+	return (userEncryptedKey == serverEncryptedKey);
+}
+function isRequestValid(room, key, mode){
+	if(room == null || key == null && (mode != constants.MAPS && mode != constants.CHAR){
+		res.sendFile(__dirname + '/index.htm');
+	}
+}
+function isMapVote(mode, room){
+	return mode == constants.MAP && room["mode"] == constants.MAP;
+}
+function isCharacterVote(mode, room){
+	return mode == constants.CHAR && room["mode"] == constants.CHAR;
+}
+function allowOtherTeamToVote(key, room){
+	if (whichTeamisAllowedToVote(key, room) == constants.TEAM_A)
+		room["votingTeam"] = constants.TEAM_B;
+	else if (whichTeamisAllowedToVote(key, room) == constants.TEAM_B)
+		room["votingTeam"] = constants.TEAM_A;;
+}
+function acquireVotingLock(res, room){
+	//This is needed so that only one person per team can vote
+		if (room["voteInProgress"] == false && whichTeamisAllowedToVote(key, room) == room["votingTeam"]){
+			room["voteInProgress"] = true;
+			return true;
+		}
+		else {
+			return false;
+		}
+}
+function releaseVotingLock(room){
+		room["voteInProgress"] = false;
+}
+function hasTeamBVoteBeenCast(room){
+	return room["teamBHasVoted"] == true;
+}
+function hasTeamAVoteBeenCast(room){
+	return room["teamAHasVoted"] == true;
 }
 app.get('/', function(req, res){
   res.sendFile(__dirname +constants.LOGIN_URL);
@@ -46,17 +117,22 @@ app.get('/chat/', function(req, res){
 	"keyA": uuid(),
 	"keyB": uuid(),
 	"mode": req.params["mode"],
-	"hashKeyA":"",
-	"hashKeyB":"",
-	"serverKey":"",
+	"votingRound":"",
+	"votingTeam":"", 
+	"eliminationType":",
+	"voteInProgress":false,
+	"encyptedKeyA":"",
+	"encryptedKeyB":"",
+	"phrase": uuid(),
+	"serverKeyA": uuid(),
+	"serverKeyB":uuid(),
 	"maps":{},
 	"characters":{},
-	"voteCastA": false,
-	"voteCastB":false
+	"teamAHasVoted": false,
+	"teamBHasVoted":false
   }
-  room["serverKey"] = uuid();
-  room["hashKeyA"]  = CryptoJS.AES.encrypt(JSON.stringify(room["keyA"]), room["serverKey"]);
-  room["hashKeyB"]  = CryptoJS.AES.encrypt(JSON.stringify(room["keyB"]), room["serverKey"]);
+  room["encryptedKeyA"]  = computeKey(room["serverKeyA"], room["keyA"], room["phrase"]);
+  room["encryptedKeyB"]  = computeKey(room["serverKeyB"], room["keyB"], room["phrase"]);
   rooms[roomId] = room;
   res.sendFile(__dirname + '/index.htm');
 });
@@ -69,40 +145,36 @@ app.get('/chat/:room/:user', function(req, res){
 app.post('/vote', function(req, res){
 	var key = req.params["key"];
 	var room = req.params["room"];
-	var mode = req.params["mode"]
-	var voteCastA = room["voteCastA"];
-	var voteCastB = room["voteCastB"];
-	var hashA = room[hashKeyA];
-	var hashB = room[hashKeyB];
-	if(rooms[room] == null && key == null && (mode != constants.MAPS && mode != constants.CHAR) && rooms[voteCastA] == false || rooms[voteCastB] == false){
-		res.sendFile(__dirname + '/index.htm');
-	}
-	//compute key and compare for security check
-	var userHash = CryptoJS.AES.encrypt(JSON.stringify(room["key"]), room["serverKey"]);
-	if(room["voteCastA"] && room["voteCastB"]){
-		room["voteCastA"] = false;
-		room["voteCastB"] = false;
-	}
-	if (mode == constants.MAP){
-		if (rooms[hashA] == userHash && room["voteCastA"] == false){
+	var mode = req.params["mode"];
+
+	isRequestValid(rooms[room], key, mode);
+	var userHasVotingPrivlege = acquireVotingLock(rooms[room]);
+	if (isMapVote(mode, room) && userHasVotingPrivlege){
+		if (whichTeamisAllowedToVote(key, room) == constants.TEAM_A && !hasTeamAVoteBeenCast(rooms[room])){
 			vote(mode, room, choice1, choice2)
-			room["voteCastA"] = true;
+			room["teamAHasVoted"] = true;
 		}
-		else if (rooms[hashB] == userHash && room["voteCastB"] == false){
+		else if (whichTeamisAllowedToVote(key, room) == constants.TEAM_B && !hasTeamBVoteBeenCast(rooms[room])){
 			vote(mode, room, choice1, choice2)
-			room["voteCastB"] = true;
+			room["teamBHasVoted"] = true;
 		}
 	}
-	else if (mode == constants.CHAR){
-		if (rooms[hashA] == userHash && room["voteCastA"] == false){ 
+	else if (isCharacterVote(mode, room) && userHasVotingPrivlege){
+		if (whichTeamisAllowedToVote(key, room) == constants.TEAM_A && !hasTeamAVoteBeenCast(rooms[room])){ 
 			vote(mode, room, choice1, choice2)
-			room["voteCastA"] = true;
+			room["teamAHasVoted"] = true;
 		}
-		else if (rooms[hashB] == userHash && room["voteCastB"] == false){
+		else if (whichTeamisAllowedToVote(key, room) == constants.TEAM_B && !hasTeamBVoteBeenCast(rooms[room])){
 			vote(mode, room, choice1, choice2)
-			room["voteCastB"] = true;
+			room["teamBHasVoted"] = true;
 		}
 	}
+	
+	
+	//reset for next round of voting
+	startNewVotingRoundIfNeeded(rooms[room]);
+	allowOtherTeamToVote(key, room);
+	releaseVotingLock(res, rooms[room]);
 	res.sendFile(__dirname + '/index.htm');
 });
 app.post('/createaccount', function(req, res){
