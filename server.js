@@ -45,10 +45,11 @@ function vote(mode, room, choice1, choice2){
 			return constants.FAIL;
 		}
 }
-function whichTeamisAllowedToVote(key, room){
-	if (key == room["keyA"] && room["votingTeam"] == constants.TEAM_A)
+//Takes user provided key and creates encypted version with server key and phrase then compares to against the server copy of encrypted key for authenricity
+function whichTeamisAllowedToVote(userKey, room){
+	if (room["votingTeam"] == constants.TEAM_A && computeKey(room["serverKeyA"], userKey, room["phrase"]) == room["serverEncryptedKeyA"])
 		return constants.TEAM_A;
-	else if (key == room["keyB"] && room["votingTeam"] == constants.TEAM_B)
+	else if (room["votingTeam"] == constants.TEAM_B && computeKey(room["serverKeyB"], userKey, room["phrase"]) == room["serverEncryptedKeyB"])
 		return constants.TEAM_B;
 	else
 		return constants.FAIL;
