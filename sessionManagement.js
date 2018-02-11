@@ -48,14 +48,18 @@ startNewVotingRoundIfNeeded: function(room){
 	}
 },
 
-computeKey: function(serverKey, userKey, phrase){
+encryptKey: function(key, phrase){
 	//The key will be created by taking the user key and the server key for the room and encrypting with a string unique to the room
-	return CryptoJS.AES.encrypt((userKey + serverKey), phrase);
+	var CryptoJS = require('crypto-js');
+	var cipherText = CryptoJS.AES.encrypt(key, phrase);
+	return cipherText;
 },
-verifyKey: function (serverKey, userKey, serverEncryptedKey, phrase){
+verifyKey: function (serverKey, userKey, votingKey, phrase){
 	//Does the provided user key match the unaltered server copy?
-	var userEncryptedKey = computeKey(serverKey, userKey, phrase);
-	return (userEncryptedKey == serverEncryptedKey);
+	var bytes  = CryptoJS.AES.decrypt(userKey.toString(), phrase);
+	var plaintext = bytes.toString(CryptoJS.enc.Utf8);
+	console.log(plaintext);
+	return (votingKey == (serverKey + userKey));
 },
 isRequestValid: function(room, key, mode){
 	if(room == null || key == null && (mode != constants.MAPS && mode != constants.CHAR)){
@@ -99,36 +103,59 @@ teamAHasVoted: function(room){
 teamBHasVoted: function(room){
 	room["teamBHasVoted"] = true;
 },
-createRoom: function (mode, rooms){
+createRoom: function (mode,rooms,data){
+  var uuid = require('node-uuid'); 
   var user = uuid();
   var roomId = uuid();
   var room = {
-	"keyA": uuid(),
-	"keyB": uuid(),
+	"userKeyA": uuid(),
+	"userKeyB": uuid(),
 	"mode": mode,
 	"votingRound":"",
 	"votingTeam":"", 
 	"voteInProgress":false,
-	"encyptedKeyA":"",
-	"encryptedKeyB":"",
+	"votingKeyA":"",
+	"votingKeyB":"",
 	"phrase": uuid(),
 	"serverKeyA": uuid(),
 	"serverKeyB":uuid(),
 	"maps":{},
 	"characters":{},
 	"teamAHasVoted": false,
-	"teamBHasVoted":false
+	"teamBHasVoted":false,
+	"activeUsers":1,
+	"teamA":{},
+	"teamB":{},
   }
-  room["encryptedKeyA"]  = this.computeKey(room["serverKeyA"], room["keyA"], room["phrase"]);
-  room["encryptedKeyB"]  = this.computeKey(room["serverKeyB"], room["keyB"], room["phrase"]);
+  if (mode == "CHAR"){
+	  room["characters"] = data;
+  } 
+  else if (mode == "MAPS"){
+	  room["maps"] = data;
+  }
+  var encryptedKeyA = this.encryptKey(room["userKeyA"], room["phrase"]);
+  var encryptedKeyB = this.encryptKey(room["userKeyB"], room["phrase"]);
+  room["votingKeyA"]  = room["serverKeyA"] + room["userKeyA"];
+  room["votingKeyB"]  = room["serverKeyB"] + room["userKeyB"];
+  room["teamA"] = new Map();
+  room["teamB"] = new Map();
   rooms[roomId] = room;
-  return roomId;
-}
+  var userKey = uuid();
+  room["teamA"].set(userKey,true);
+  var result = {roomId: roomId, userKey:userKey, teamAKey: encryptedKeyA, teamBkey: encryptedKeyB};
+  return result;
+},
 joinRoom: function(rooms, room, user, team){
 	var intendedRoom = rooms[room];
 	intendedRoom[team].set(user, true);
 	intendedRoom["activeUsers"] = intendedRoom["activeUsers"] + 1;
-}
+},
+deleteRoom: function(rooms, room){
+	var intendedRoom = rooms[room];
+	if (intendedRoom["activeUsers"] == 0){
+		delete rooms[room];
+	}
+},
 leaveRoom: function(rooms, room, user, team){
 	var intendedRoom = rooms[room];
 	intendedRoom[team].set(user, false);
@@ -137,4 +164,10 @@ leaveRoom: function(rooms, room, user, team){
 	if (intendedRoom["activeUsers"] == 0){
 		delete rooms[room];
 	}
+},
+refresh: function(rooms, room, dataType){
+	var intendedRoom = rooms[room];
+	return intendedRoom[dataType]
 }
+};
+

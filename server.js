@@ -1,10 +1,12 @@
 const constants = require('./constants.js');
+const sessionManagement = require('./sessionManagement.js');
+const dataManagement = require('./dataManagement.js');
 const app = require('express')();
 const http = require('http').Server(app);
 const alfresco = require('alfresco-js-api');
-var io = require('socket.io')(http);
-var Room = require('./room.js');  
+var io = require('socket.io')(http);  
 var uuid = require('node-uuid'); 
+module.exports.uuid = uuid;
 var bodyParser = require('body-parser');
 app.use(bodyParser.json()); // support json encoded bodies
 app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies 
@@ -14,170 +16,132 @@ var usernames = [];
 var items = []
 var CryptoJS = require('crypto-js');
 var connection = alfrescoJsApi = new alfresco(constants.ALFRESCO_IP, {provider:'ALL'});
-function login(user, pass){
-	connection.login(user, pass).then(function (data) {
-	console.log('API called successfully LOGIN_URL in  BPM and ECM performed ');
-	}, function (error) {
-		console.error(error);
-	});
-}
-function logout(){
-	 connection.logout().then(function(){
-	},function(error){
-	});
-}
-//TODO: validate number of items against allowed votes per round; for example, is this a two pick round and have two valid choices been provided ?
-function isVoteValid(room, choice1, choice2){
-	
-}
 
-function vote(mode, room, choice1, choice2){
-		var isValid = isVoteValid(room, choice1, choice2);
-		
-		if(isValid){
-			delete room[mode[req.params[constants.CHOICE1]]];
-			if (req.params[constants.CHOICE2] != null){
-				delete room[mode[req.params[constants.CHOICE2]]];
-			}
-			return constants.CAST;
-		}
-		else{
-			return constants.FAIL;
-		}
-}
-//Takes user provided key and creates encypted version with server key and phrase then compares to against the server copy of encrypted key for authenricity
-function whichTeamisAllowedToVote(userKey, room){
-	if (room["votingTeam"] == constants.TEAM_A && computeKey(room["serverKeyA"], userKey, room["phrase"]) == room["serverEncryptedKeyA"])
-		return constants.TEAM_A;
-	else if (room["votingTeam"] == constants.TEAM_B && computeKey(room["serverKeyB"], userKey, room["phrase"]) == room["serverEncryptedKeyB"])
-		return constants.TEAM_B;
-	else
-		return constants.FAIL;
-}
+io.on('connection', function(socket){
+  socket.on('vote', function(vote){
+	//Intended Room is current session for this user
+	var key = vote.key;
+	var room = vote.room;
+	var intendedRoom = rooms[room];
+	var choice1 = vote.choice1;
+	var choice2 = vote.choice2;
+	var mode = intendedRoom["mode"];
 
-function startNewVotingRoundIfNeeded(room){
-	//If both teams have voted start new round
-	if(room["teamAHasVoted"] && room["teamBHasVoted"]){
-		room["teamAHasVoted"] = false;
-		room["teamBHasVoted"] = false;
+	if (!sessionManagement.isRequestValid(intendedRoom, key, mode)){
+		socket.emit("fail");
 	}
-}
-
-function computeKey(serverKey, userKey, phrase){
-	//The key will be created by taking the user key and the server key for the room and encrypting with a string unique to the room
-	return CryptoJS.AES.encrypt(userKey + serverKey), phrase);
-}
-function verifyKey(serverKey, userKey, serverEncryptedKey, phrase){
-	//Does the provided user key match the unaltered server copy?
-	var userEncryptedKey = computeKey(serverKey, userKey, phrase);
-	return (userEncryptedKey == serverEncryptedKey);
-}
-function isRequestValid(room, key, mode){
-	if(room == null || key == null && (mode != constants.MAPS && mode != constants.CHAR){
-		res.sendFile(__dirname + '/index.htm');
-	}
-}
-function isMapVote(mode, room){
-	return mode == constants.MAP && room["mode"] == constants.MAP;
-}
-function isCharacterVote(mode, room){
-	return mode == constants.CHAR && room["mode"] == constants.CHAR;
-}
-function allowOtherTeamToVote(key, room){
-	if (whichTeamisAllowedToVote(key, room) == constants.TEAM_A)
-		room["votingTeam"] = constants.TEAM_B;
-	else if (whichTeamisAllowedToVote(key, room) == constants.TEAM_B)
-		room["votingTeam"] = constants.TEAM_A;;
-}
-function acquireVotingLock(res, room){
-	//This is needed so that only one person per team can vote
-		if (room["voteInProgress"] == false && whichTeamisAllowedToVote(key, room) == room["votingTeam"]){
-			room["voteInProgress"] = true;
-			return true;
+	var userHasVotingPrivlege = sessionManagement.acquireVotingLock(intendedRoom);
+	if (sessionManagement.isMapVote(mode, room) && userHasVotingPrivlege){
+		if (sessionManagement.whichTeamisAllowedToVote(key, room) == constants.TEAM_A && !sessionManagement.hasTeamAVoteBeenCast(intendedRoom)){
+			sessionManagement.vote(mode, room, choice1, choice2)
+			sessionManagement.teamAHasVoted(room);
+			socket.emit("successVote", choice1);
 		}
-		else {
-			return false;
-		}
-}
-function releaseVotingLock(room){
-		room["voteInProgress"] = false;
-}
-function hasTeamBVoteBeenCast(room){
-	return room["teamBHasVoted"] == true;
-}
-function hasTeamAVoteBeenCast(room){
-	return room["teamAHasVoted"] == true;
-}
-app.get('/', function(req, res){
-  res.sendFile(__dirname +constants.LOGIN_URL);
-});
-app.get('/chat/', function(req, res){
-  var user = uuid();
-  var roomId = uuid();
-  var room = {
-	"keyA": uuid(),
-	"keyB": uuid(),
-	"mode": req.params["mode"],
-	"votingRound":"",
-	"votingTeam":"", 
-	"eliminationType":",
-	"voteInProgress":false,
-	"encyptedKeyA":"",
-	"encryptedKeyB":"",
-	"phrase": uuid(),
-	"serverKeyA": uuid(),
-	"serverKeyB":uuid(),
-	"maps":{},
-	"characters":{},
-	"teamAHasVoted": false,
-	"teamBHasVoted":false
-  }
-  room["encryptedKeyA"]  = computeKey(room["serverKeyA"], room["keyA"], room["phrase"]);
-  room["encryptedKeyB"]  = computeKey(room["serverKeyB"], room["keyB"], room["phrase"]);
-  rooms[roomId] = room;
-  res.sendFile(__dirname + '/index.htm');
-});
-app.get('/chat/:room/:user', function(req, res){
-  var user = uuid();
-  var join = {"user": user, 
-			"room": room };
-  res.sendFile(__dirname + '/index.htm');
-});
-app.post('/vote', function(req, res){
-	var key = req.params["key"];
-	var room = req.params["room"];
-	var mode = req.params["mode"];
-
-	isRequestValid(rooms[room], key, mode);
-	var userHasVotingPrivlege = acquireVotingLock(rooms[room]);
-	if (isMapVote(mode, room) && userHasVotingPrivlege){
-		if (whichTeamisAllowedToVote(key, room) == constants.TEAM_A && !hasTeamAVoteBeenCast(rooms[room])){
+		else if (sessionManagement.whichTeamisAllowedToVote(key, room) == constants.TEAM_B && !sessionManagement.hasTeamBVoteBeenCast(intendedRoom)){
 			vote(mode, room, choice1, choice2)
-			room["teamAHasVoted"] = true;
-		}
-		else if (whichTeamisAllowedToVote(key, room) == constants.TEAM_B && !hasTeamBVoteBeenCast(rooms[room])){
-			vote(mode, room, choice1, choice2)
-			room["teamBHasVoted"] = true;
+			sessionManagement.teamBHasVoted(room);
+			socket.emit("successVote", choice1);
 		}
 	}
-	else if (isCharacterVote(mode, room) && userHasVotingPrivlege){
-		if (whichTeamisAllowedToVote(key, room) == constants.TEAM_A && !hasTeamAVoteBeenCast(rooms[room])){ 
+	else if (sessionManagement.isCharacterVote(mode, room) && userHasVotingPrivlege){
+		if (whichTeamisAllowedToVote(key, room) == constants.TEAM_A && !sessionManagement.hasTeamAVoteBeenCast(intendedRoom)){ 
 			vote(mode, room, choice1, choice2)
-			room["teamAHasVoted"] = true;
+			sessionManagement.teamAHasVoted(room);
+			socket.emit("successVote", choice2);
 		}
-		else if (whichTeamisAllowedToVote(key, room) == constants.TEAM_B && !hasTeamBVoteBeenCast(rooms[room])){
+		else if (sessionManagement.whichTeamisAllowedToVote(key, room) == constants.TEAM_B && !sessionManagement.hasTeamBVoteBeenCast(intendedRoom)){
 			vote(mode, room, choice1, choice2)
-			room["teamBHasVoted"] = true;
+			sessionManagement.teamBHasVoted(room);
+			socket.emit("successVote", choice2);
 		}
 	}
 	
 	
 	//reset for next round of voting
-	startNewVotingRoundIfNeeded(rooms[room]);
-	allowOtherTeamToVote(key, room);
-	releaseVotingLock(res, rooms[room]);
+	sessionManagement.startNewVotingRoundIfNeeded(intendedRoom);
+	sessionManagement.allowOtherTeamToVote(key, room);
+	sessionManagement.releaseVotingLock(intendedRoom);
+	
+  });
+  
+  socket.on('join', function(msg){
+    console.log('message: ' + msg);
+  });
+});
+    
+app.get('/', function(req, res){
+  res.sendFile(__dirname + '\\public\\index.htm');
+});
+
+/* Mode must be either character or map; it is used to determine which data set to use.
+ KeyA and KeyB are the portions of the identifier sent to the client for team a and b that the user must submit when voting for verification
+ Phrase is the encrypting string */
+app.get('/chat/:game/:type', function(req, res){
+	var data;
+	if (req.params["type"] == "Maps"){
+		var data = dataManagement.getGameDetails(connection, req.params['game']).then(function(data){
+			return data;
+		});
+		dataManagement.getMaps(connection, req.params['game']).then(function(data){
+			sessionManagement.createRoom(req.params["type"], rooms, data);
+			console.log(rooms);
+			res.sendFile(__dirname + '/chat.htm');
+			return data;
+		});
+	} else if (req.params["type"] == "Characters"){
+		dataManagement.getCharacters(connection, req.params['game']).then(function(data){
+			sessionManagement.createRoom(req.params["mode"], rooms, data);
+			res.sendFile(__dirname + '/chat.htm');
+		}
+		
+	);
+}});
+app.get('/chat/:room/:team', function(req, res){
+  var user = uuid();
+  var join = {"team": req.params["team"], 
+			 "room": req.params["room"]};
+  res.sendFile(__dirname + '/chat.htm');
+});
+
+//Deprecated to be removed
+app.post('/vote', function(req, res){
+	var key = req.params["key"];
+	var room = req.params["room"];
+	var mode = req.params["mode"];
+
+	if (!sessionManagement.isRequestValid(rooms[room], key, mode)){
+		res.sendFile(__dirname + '/index.htm');
+	}
+	var userHasVotingPrivlege = sessionManagement.acquireVotingLock(rooms[room]);
+	if (sessionManagement.isMapVote(mode, room) && userHasVotingPrivlege){
+		if (sessionManagement.whichTeamisAllowedToVote(key, room) == constants.TEAM_A && !sessionManagement.hasTeamAVoteBeenCast(rooms[room])){
+			sessionManagement.vote(mode, room, choice1, choice2)
+			sessionManagement.teamAHasVoted(room);
+		}
+		else if (sessionManagement.whichTeamisAllowedToVote(key, room) == constants.TEAM_B && !sessionManagement.hasTeamBVoteBeenCast(rooms[room])){
+			vote(mode, room, choice1, choice2)
+			sessionManagement.teamBHasVoted(room);
+		}
+	}
+	else if (sessionManagement.isCharacterVote(mode, room) && userHasVotingPrivlege){
+		if (whichTeamisAllowedToVote(key, room) == constants.TEAM_A && !hasTeamAVoteBeenCast(rooms[room])){ 
+			vote(mode, room, choice1, choice2)
+			sessionManagement.teamAHasVoted(room);
+		}
+		else if (sessionManagement.whichTeamisAllowedToVote(key, room) == constants.TEAM_B && !sessionManagement.hasTeamBVoteBeenCast(rooms[room])){
+			vote(mode, room, choice1, choice2)
+			sessionManagement.teamBHasVoted(room);
+		}
+	}
+	
+	
+	//reset for next round of voting
+	sessionManagement.startNewVotingRoundIfNeeded(rooms[room]);
+	sessionManagement.allowOtherTeamToVote(key, room);
+	sessionManagement.releaseVotingLock(res, rooms[room]);
 	res.sendFile(__dirname + '/index.htm');
 });
+//end
 app.post('/createaccount', function(req, res){
 	var nodeId = constants.ALFRESCO_USER_HOME_REF;
 	var node = {
@@ -192,59 +156,27 @@ app.post('/createaccount', function(req, res){
 	});
 });
 app.get('/games/', function(req, res){
-	login("admin", "admin");
-	connection.search.searchApi.search({
-        "query": {
-            "query": "select cmis:objectId, pb:Name from pb:Game",
-            "language": "cmis"
-            }
-        }).then(function (data) {
-			var gamesList = [];
-			var games = Object.keys(data.list.entries);
-			for (var i=0; i<games.length; i++){
-				var game = data.list.entries[i].entry;
-				var obj = new Object();
-				obj.name = game.name;
-				obj.id = game.id;
-				gamesList.push(obj);
-			}
-            res.send(gamesList);
-        }, function (error) {
-            res.send(error);
-        });
+	sessionManagement.login(connection, "admin", "admin");
+	dataManagement.getGames(connection).then(function(data){
+		res.send(data);
+	});
+	
 });
 app.post('/login', function(req, res) {
-	login(req.body.name, req.body.password);
+	sessionManagement.login(connection, req.body.name, req.body.password);
 });
 app.get('/details/:game', function(req, res){
-	login("admin", "admin");
-		connection.search.searchApi.search({
-        "query": {
-            "query": "select * from pb:Map where pb:parentGame = 'workspace://SpacesStore/" + req.params['game'] +"'",
-            "language": "cmis"
-			
-            }
-        }).then(function (data) {
-            res.send(data);
-        }, function (error) {
-            res.send(error);
-        });
+	sessionManagement.login(connection, "admin", "admin");
+	dataManagement.getGameDetails(connection, req.params['game']).then(function(data){
+		return data;
+	});
 	
 });
 app.get('/maps/:game', function(req, res){
-	login("admin", "admin");
-		connection.search.searchApi.search({
-        "query": {
-            "query": "select * from cmis:document where IN_FOLDER('workspace://SpacesStore/" + req.params['game'] +"') and cmis:name like '%.png'",
-            "language": "cmis"
-			
-            }
-        }).then(function (data) {
-            res.send(data);
-        }, function (error) {
-            res.send(error);
-        });
-	
+	sessionManagement.login(connection, "admin", "admin");
+	dataManagement.getMaps(connection, req.params['game']).then(function(data){
+		return data;
+	});
 });
 io.on('connection', function(socket){
 	socket.on("connected", function(data){

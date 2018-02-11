@@ -1,0 +1,72 @@
+<html>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	<script type='text/javascript' src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.4.2/knockout-min.js"></script>
+	<div>
+		<ul>
+		</ul>
+	</div>
+	<div>
+		<form>
+			<table>
+				<td>
+					<select data-bind="options: games,
+										optionsText:function(game){
+											return game.title;
+										},
+										optionsValue:function(game){
+											return game.id;
+										},
+										value:selectedGame"></select>
+				</td>
+				<tr>
+					<td>
+						<input type="radio" data-bind="checked:isMap" id="Maps"/>Maps
+					</td>
+				<tr/>
+				<tr>
+					<td>
+						<input type="radio" data-bind="checked:isCharacter" id="Characters"/>Characters
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<button data-bind="click: create">Create</button>
+					</td>
+				</tr>
+			</table>
+		</form>
+	</div>
+		<script>
+		var game = function(name, id){
+			this.title = name;
+			this.id = id;
+		};
+		function model(){
+			var self = this;
+			self.games = ko.observableArray();
+			self.type = ko.observable();
+			self.isMap = ko.observable(false);
+			self.isCharacter = ko.observable(false);
+			self.type = ko.observable();
+			$.ajax({
+				url:'http://localhost:3000/games',
+				type:'GET',
+				success:function(data){
+					for(var x in data){
+						var item = new game(data[x].name, data[x].id);
+						self.games.push(item);
+					}
+				},
+			});
+			self.selectedGame = ko.observable();
+			self.create = function(){
+				self.isMap() == true ? self.type("Maps") : self.type("Characters");
+				var url = ko.observable("http://localhost:3000/chat/" + self.selectedGame() + '/' + self.type());
+				window.open(url());
+			}
+		}
+		var controller = new model();
+		ko.applyBindings(controller);
+	</script>
+</html>
+    	

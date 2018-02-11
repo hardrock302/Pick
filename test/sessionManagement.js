@@ -1,5 +1,3 @@
-var uuid = require('node-uuid'); 
-var CryptoJS = require('crypto-js')
 module.exports = {
 login: function (connection, user, pass){
 	connection.login(user, pass).then(function (data) {
@@ -101,7 +99,7 @@ teamAHasVoted: function(room){
 teamBHasVoted: function(room){
 	room["teamBHasVoted"] = true;
 },
-createRoom: function (mode,rooms){
+createRoom: function (mode,rooms,data){
   var user = uuid();
   var roomId = uuid();
   var room = {
@@ -124,6 +122,12 @@ createRoom: function (mode,rooms){
 	"teamA":{},
 	"teamB":{},
   }
+  if (mode == "CHAR"){
+	  room["characters"] = data;
+  } 
+  else if (mode == "MAPS"){
+	  room["maps"] = data;
+  }
   room["encryptedKeyA"]  = this.computeKey(room["serverKeyA"], room["keyA"], room["phrase"]);
   room["encryptedKeyB"]  = this.computeKey(room["serverKeyB"], room["keyB"], room["phrase"]);
   room["teamA"] = new Map();
@@ -134,8 +138,26 @@ createRoom: function (mode,rooms){
 joinRoom: function(rooms, room, user, team){
 	var intendedRoom = rooms[room];
 	intendedRoom[team].set(user, true);
-	console.log(intendedRoom[team]);
-	intendedRoom["activeUsers"] = intendedRoom["activeUsers"] + 1;;
+	intendedRoom["activeUsers"] = intendedRoom["activeUsers"] + 1;
+},
+deleteRoom: function(rooms, room){
+	var intendedRoom = rooms[room];
+	if (intendedRoom["activeUsers"] == 0){
+		delete rooms[room];
+	}
+},
+leaveRoom: function(rooms, room, user, team){
+	var intendedRoom = rooms[room];
+	intendedRoom[team].set(user, false);
+	delete intendedRoom[user];
+	intendedRoom["activeUsers"] = intendedRoom["activeUsers"] - 1;
+	if (intendedRoom["activeUsers"] == 0){
+		delete rooms[room];
+	}
+},
+refresh: function(rooms, room, dataType){
+	var intendedRoom = rooms[room];
+	return intendedRoom[dataType]
 }
-	
-}
+};
+

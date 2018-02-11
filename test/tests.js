@@ -18,4 +18,17 @@ describe('Room Tests', function(){
 		assert(rooms[roomKey]["teamA"].get("A") == true);
 		done(); 
 	});
+	it('vote', function(done){
+		roomKey = sessionManagement.createRoom("MAPS", rooms);
+		sessionManagement.joinRoom(rooms, roomKey, "A", "teamA");
+		rooms[roomKey]["characters"].push("Banana");
+		var s = sessionManagement.vote("MAPS", rooms[roomKey], "Banana");
+		assert(s == true);
+	});
+	it('leaveRoom', function(done){
+		sessionManagement.joinRoom(rooms, roomKey, "A", "teamA");
+		sessionManagement.leaveRoom(rooms, roomKey, "A", "teamA");
+		assert(rooms[roomKey]["teamA"].get("A") == false);
+		done(); 
+	});
 });
